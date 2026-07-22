@@ -65,6 +65,9 @@ goto menu
 echo Running System File Checker...
 echo.
 sfc /scannow
+echo.
+echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
+findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%userprofile%\Desktop\sfcdetails.txt"
 pause
 goto menu
 
@@ -129,6 +132,9 @@ echo Starting System Image Repair...
 echo.
 echo Starting System File Checker...
 sfc /scannow
+echo.
+echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
+findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%userprofile%\Desktop\sfcdetails.txt"
 echo.
 echo System repair commands completed.
 echo It is strongly recommended to restart your computer now to complete any repairs.
