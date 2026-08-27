@@ -1,12 +1,22 @@
 @echo off
-setlocal
-:: Ensure script is run with administrator privileges
+setlocal EnableDelayedExpansion
+:: Require admin
 net session >nul 2>&1
 if %errorlevel% neq 0 (
 echo This script requires administrator privileges. Please run it as an administrator.
 pause
 exit /b
 )
+
+:: Resolve real Desktop dir (handles OneDrive redirect; value is unexpanded %USERPROFILE%)
+for /f "skip=1 tokens=1,2*" %%I in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do (
+    if /I "%%I"=="Desktop" if not "%%~K"=="" (
+        set "DesktopDir=%%~K"
+        :: expand %USERPROFILE% ref
+        if defined DesktopDir call set "DesktopDir=!DesktopDir!" >nul 2>&1
+    )
+)
+if not defined DesktopDir set "DesktopDir=%userprofile%\Desktop"
 
 :menu
 cls
@@ -66,51 +76,54 @@ echo Running System File Checker...
 echo.
 sfc /scannow
 echo.
-echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
-findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%userprofile%\Desktop\sfcdetails.txt"
+:: Extract SFC errors only if CBS log exists
+if exist "%windir%\Logs\CBS\CBS.log" (
+    echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
+    findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%DesktopDir%\sfcdetails.txt"
+)
 pause
 goto menu
 
 :updatefix
 echo Running System Update Repair...
 echo.
-:: Start the TrustedInstaller service to allow modifications to system files
+:: Start TrustedInstaller so DISM/sysfile mods are allowed
 echo Configuring TrustedInstaller service...
 SC config trustedinstaller start= auto >nul 2>&1
 net start trustedinstaller >nul 2>&1
-:: Stop update-related services
+:: Stop update svcs to free the folders/DLLs
 echo Stopping update services...
 net stop bits >nul 2>&1
 net stop wuauserv >nul 2>&1
 net stop msiserver >nul 2>&1
 net stop cryptsvc >nul 2>&1
 net stop appidsvc >nul 2>&1
-:: Rename update-related folders to allow fresh start
+:: Rename update folders so they're recreated fresh
 echo Renaming SoftwareDistribution and catroot2 folders...
+:: Locale-independent date (date /t order varies by locale)
+for /f "delims=" %%T in ('powershell.exe -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set "datestamp=%%T"
 if exist "%SystemRoot%\SoftwareDistribution" (
-    for /f "tokens=2-4 delims=/ " %%a in ('date /t') do set "datestamp=%%c-%%a-%%b"
-    Ren "%SystemRoot%\SoftwareDistribution" "SoftwareDistribution.%datestamp%.old" >nul 2>&1
+    Ren "%SystemRoot%\SoftwareDistribution" "SoftwareDistribution.!datestamp!.old" >nul 2>&1
 )
 if exist "%SystemRoot%\System32\catroot2" (
-    for /f "tokens=2-4 delims=/ " %%a in ('date /t') do set "datestamp=%%c-%%a-%%b"
-    Ren "%SystemRoot%\System32\catroot2" "catroot2.%datestamp%.old" >nul 2>&1
+    Ren "%SystemRoot%\System32\catroot2" "catroot2.!datestamp!.old" >nul 2>&1
 )
-:: Re-register critical DLLs
+:: Re-register update DLLs
 echo Re-registering system DLLs...
 regsvr32.exe /s atl.dll >nul 2>&1
 regsvr32.exe /s urlmon.dll >nul 2>&1
 regsvr32.exe /s mshtml.dll >nul 2>&1
-:: Reset network components and proxy
+:: Reset network + proxy
 echo Resetting network and proxy settings...
 netsh winsock reset >nul 2>&1
-netsh winsock reset proxy >nul 2>&1
+netsh winhttp reset proxy >nul 2>&1
 :: Remove unused drivers
 echo Cleaning up unused drivers...
 rundll32.exe pnpclean.dll,RunDLL_PnpClean /DRIVERS /MAXCLEAN >nul 2>&1
-:: Perform DISM component cleanup
+:: DISM component cleanup
 echo Performing component cleanup...
 "%SystemRoot%\System32\DISM.exe" /Online /Cleanup-image /StartComponentCleanup >nul 2>&1
-:: Restart update services
+:: Restart update svcs
 echo Restarting update services...
 net start bits >nul 2>&1
 net start wuauserv >nul 2>&1
@@ -118,6 +131,7 @@ net start msiserver >nul 2>&1
 net start cryptsvc >nul 2>&1
 net start appidsvc >nul 2>&1
 echo System Update Repair completed.
+echo Note: A restart is required for the Winsock reset to take full effect.
 pause
 goto menu
 
@@ -133,8 +147,10 @@ echo.
 echo Starting System File Checker...
 sfc /scannow
 echo.
-echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
-findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%userprofile%\Desktop\sfcdetails.txt"
+if exist "%windir%\Logs\CBS\CBS.log" (
+    echo File "sfcdetails.txt" is saved on your desktop with only the error logs of the SFC repair tool.
+    findstr /c:"[SR]" "%windir%\Logs\CBS\CBS.log" >"%DesktopDir%\sfcdetails.txt"
+)
 echo.
 echo System repair commands completed.
 echo It is strongly recommended to restart your computer now to complete any repairs.
