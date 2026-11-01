@@ -12,12 +12,8 @@ A comprehensive batch script for diagnosing and repairing Windows system issues.
 - **Detailed System Scan**: In-depth analysis of system image health
 - **System Image Repair**: Automated repair of corrupted system files with Windows Update integration
 - **System File Checker**: Comprehensive system file integrity verification and repair
-- **Windows Update Repair**: Advanced troubleshooting for Windows Update issues including:
-  - Service management
-  - Component re-registration
-  - Network reset
-  - Driver cleanup
-- **Sequential Repair Mode**: Optimized execution of core repair operations with automatic restart recommendation
+- **Windows Update Repair**: Cache reset with confirmation, backups, and service recovery
+- **Sequential Repair Mode**: DISM image repair followed by SFC, with failure checks
 - **Interactive Menu**: User-friendly interface with detailed help section
 
 ## 🚀 Getting Started
@@ -73,25 +69,28 @@ The script presents an interactive menu with the following options:
    - Recommended after DISM repairs
 
 5. **System Update Repair**
-   - Comprehensive Windows Update troubleshooting
-   - Resets update-related services and components
-   - Cleans up driver cache
-   - Repairs network settings
+   - Use after Windows Update troubleshooting has failed
+   - Requests confirmation before resetting update caches
+   - Backs up cache folders and attempts service recovery on failure
+   - Does not change proxies, drivers, or service startup settings
 
-6. **Run commands 2, 3, 4 Sequentially**
-   - Executes the three core repair commands in optimal order:
-     - **DISM /ScanHealth** (Detailed system scan)
-     - **DISM /RestoreHealth** (Image repair)
-     - **sfc /scannow** (System file verification)
-   - **Always recommends a system restart** after completion to ensure repairs take effect
+6. **Repair image, then system files**
+   - Runs `DISM /RestoreHealth`, then `sfc /scannow` after successful image repair
+   - Stops if DISM fails or requires a restart before continuing
    - Does not include Windows Update repair operations
+
+7. **Restart System** - Requests confirmation before restarting
+8. **Restart to firmware settings** - Requests confirmation; requires firmware support
+9. **Help** - Describes available operations
+
+Press **0** to exit and return to the calling terminal.
 
 ## ⚠️ Important Notes
 
 - **Always backup important data** before running system repairs
 - **Requires administrator privileges** to execute repairs
-- **System restart is recommended** after running sequential repairs, regardless of individual command results
-- Windows Update repairs may temporarily disable update services
+- Save your work before confirming a restart
+- Windows Update repair temporarily stops update services and retains cache backups
 - Internet connection required for downloading system files during repair
 - The sequential repair mode follows Microsoft's recommended execution order for optimal results
 
@@ -101,32 +100,28 @@ The script performs the following technical operations:
 
 ### Core Repair Commands (Sequential Mode)
 
-- **DISM ScanHealth**: Detects Windows image corruption
 - **DISM RestoreHealth**: Repairs Windows component store using Windows Update
 - **SFC scannow**: Verifies and repairs individual system files
+
+`DISM /CheckHealth` and `/ScanHealth` remain separate diagnostic options.
 
 ### Windows Update Repair Operations
 
 - Service management (stop/start) for:
   - Background Intelligent Transfer Service (BITS)
   - Windows Update Service
-  - MSI Installer
   - Cryptographic Services
-  - Application Identity Service
-- Registry component re-registration
-- Network stack reset
-- Driver state management
-- Windows component cleanup
+- Cache folder backups with unique names
+- Command-result checks and service recovery attempts on failure
 
 ## 📋 Command Execution Order
 
 The sequential repair mode follows Microsoft's recommended order:
 
-1. **DISM /ScanHealth** - Identifies corruption in the Windows image
-2. **DISM /RestoreHealth** - Repairs the Windows component store
-3. **sfc /scannow** - Repairs individual system files using the clean component store
+1. **DISM /RestoreHealth** - Repairs the Windows component store
+2. **sfc /scannow** - Runs after successful image repair
 
-This hierarchical approach ensures each tool can function optimally and repairs proceed from the foundational Windows image level down to individual system files.
+If DISM fails or requires a restart, resolve that condition before running SFC.
 
 ## 🤝 Contributing
 
@@ -151,5 +146,7 @@ If you encounter issues:
 3. Verify Windows Update service is accessible
 4. Check system drive for sufficient space (at least 2GB free recommended)
 5. Review logs in `%windir%\Logs\DISM\dism.log`
+   - Also review the per-run log path printed by the script
+   - Exported `[SR]` entries include historical SFC details, not just current-run errors
 6. If sequential repairs don't resolve issues, try running individual commands separately
 7. For persistent corruption, consider Windows in-place upgrade or system restore
