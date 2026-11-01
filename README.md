@@ -30,6 +30,18 @@ A comprehensive batch script for diagnosing and repairing Windows system issues.
 
 ### Installation
 
+#### Quick start
+
+Paste into **Windows PowerShell** and approve the administrator prompt:
+
+```powershell
+& { $p = "$env:TEMP\sys_repair.bat"; Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/Mohabdo21/Windows-Repair-Tool/main/sys_repair.bat' -OutFile $p -ErrorAction Stop; Start-Process -FilePath $p -Verb RunAs }
+```
+
+**Warning:** Downloads and runs code from `main` as administrator. Only run if you trust this repository.
+
+#### Manual download
+
 1. Download the `sys_repair.bat` file
 2. Right-click the file and select "Run as administrator"
 
@@ -38,7 +50,6 @@ A comprehensive batch script for diagnosing and repairing Windows system issues.
 cd path/to/script
 sys_repair.bat
 ```
-
 
 ## 💻 Usage
 
@@ -89,11 +100,13 @@ The script presents an interactive menu with the following options:
 The script performs the following technical operations:
 
 ### Core Repair Commands (Sequential Mode)
+
 - **DISM ScanHealth**: Detects Windows image corruption
 - **DISM RestoreHealth**: Repairs Windows component store using Windows Update
 - **SFC scannow**: Verifies and repairs individual system files
 
 ### Windows Update Repair Operations
+
 - Service management (stop/start) for:
   - Background Intelligent Transfer Service (BITS)
   - Windows Update Service
@@ -110,7 +123,7 @@ The script performs the following technical operations:
 The sequential repair mode follows Microsoft's recommended order:
 
 1. **DISM /ScanHealth** - Identifies corruption in the Windows image
-2. **DISM /RestoreHealth** - Repairs the Windows component store 
+2. **DISM /RestoreHealth** - Repairs the Windows component store
 3. **sfc /scannow** - Repairs individual system files using the clean component store
 
 This hierarchical approach ensures each tool can function optimally and repairs proceed from the foundational Windows image level down to individual system files.
